@@ -221,7 +221,7 @@ const App = () => {
         textAlign: 'center',
         borderTop: `1px solid ${COLORS.border}`
       }}>
-        Cloudflare Clearance Viewer | <a href="https://github.com/Danushka-Madushan" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.googleBlue, textDecoration: 'none' }}>Github</a>
+        Cloudflare Clearance Viewer | <a href="https://github.com/Danushka-Madushan/cloudflare-clearance-viewer" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.googleBlue, textDecoration: 'none' }}>Github</a>
       </footer>
     </div>
   )
