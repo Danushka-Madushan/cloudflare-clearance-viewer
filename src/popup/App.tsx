@@ -1,139 +1,181 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 type Cookie = {
   name: string
   value: string
   domain: string
+  isPartitioned: boolean
 }
 
 type PageState = {
   cookies: Cookie[]
-  status: string
-  error: string
+  status: 'idle' | 'loading' | 'success' | 'error' | 'empty'
+  message: string
   url: string
 }
 
-const initialState: PageState = {
-  cookies: [],
-  status: 'Loading current tab…',
-  error: '',
-  url: '',
-}
+const GOOGLE_BLUE = '#1a73e8'
+const BORDER_COLOR = '#dadce0'
 
 const App = () => {
-  const [state, setState] = useState<PageState>(initialState)
+  const [state, setState] = useState<PageState>({
+    cookies: [],
+    status: 'loading',
+    message: 'Finding cf_clearance...',
+    url: '',
+  })
+  const [copiedId, setCopiedId] = useState<number | null>(null)
 
-  const loadCookies = async () => {
-    setState(prev => ({
-      ...prev,
-      status: 'Checking active tab and cookies…',
-      error: '',
-      cookies: [],
-    }))
+  const loadCookies = useCallback(async () => {
+    setState(prev => ({ ...prev, status: 'loading' }))
 
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (!tabs.length || !tabs[0].url) {
-        setState(prev => ({
-          ...prev,
-          status: 'No active tab URL available.',
-          url: '',
-        }))
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.url) {
+        setState(prev => ({ ...prev, status: 'error', message: 'No active tab URL' }))
         return
       }
 
-      const url = tabs[0].url
-      const allCookies = await chrome.cookies.getAll({ url })
+      const url = tab.url
+      const filter = { name: 'cf_clearance' }
 
-      if (allCookies.length === 0) {
-        setState(prev => ({
-          ...prev,
-          status: 'No cookies found on the active tab.',
-          url,
-        }))
-        return
-      }
+      // Parallel fetch for unpartitioned and partitioned cookies
+      const [unpartitioned, partitioned] = await Promise.all([
+        chrome.cookies.getAll({ ...filter, url }),
+        chrome.cookies.getAll({ ...filter, partitionKey: { topLevelSite: url } })
+          .catch(() => []) // Graceful fail for older Chrome versions
+      ])
 
-      const cookies: Cookie[] = allCookies.map(c => ({
+      const combined = [...unpartitioned, ...partitioned].map(c => ({
         name: c.name,
         value: c.value,
-        domain: c.domain ?? '',
+        domain: c.domain,
+        isPartitioned: !!c.partitionKey
       }))
 
-      setState(prev => ({
-        ...prev,
-        cookies,
-        status: `Found ${cookies.length} cookie(s).`,
+      setState({
         url,
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+        cookies: combined,
+        status: combined.length > 0 ? 'success' : 'empty',
+        message: combined.length > 0 ? '' : 'cf_clearance cookie not found on this page.',
+      })
+    } catch (err) {
       setState(prev => ({
         ...prev,
-        status: 'Failed to read cookies.',
-        error: message,
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Unknown error'
       }))
     }
-  }
+  }, [])
 
-  const copyValue = async (value: string) => {
+  const copyToClipboard = async (value: string, index: number) => {
     try {
       await navigator.clipboard.writeText(value)
-      setState(prev => ({
-        ...prev,
-        status: 'Cookie copied to clipboard.',
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Copy failed'
-      setState(prev => ({
-        ...prev,
-        status: 'Copy failed.',
-        error: message,
-      }))
+      setCopiedId(index)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (e) {
+      console.error('Copy failed', e)
     }
   }
 
   useEffect(() => {
     loadCookies()
-  }, [])
+  }, [loadCookies])
 
   return (
-    <div className="app-container" style={{ fontFamily: 'system-ui, sans-serif', padding: 18, width: 360, maxHeight: '600px', overflowY: 'auto' }}>
-      <h1 style={{ fontSize: 18, marginBottom: 12 }}>Page Cookies</h1>
-      <div style={{ marginBottom: 12, color: '#444' }}>
-        {state.url ? <span>Active tab: <strong>{state.url}</strong></span> : <span>{state.status}</span>}
-      </div>
+    <div style={{
+      width: 320,
+      backgroundColor: '#fff',
+      color: '#202124',
+      fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      padding: '20px',
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '200px'
+    }}>
+      {/* Header */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>Cloudflare Clearance</h1>
+        <button 
+          onClick={loadCookies}
+          title="Refresh"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#5f6368"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+      </header>
 
-      {state.error && (
-        <div style={{ marginBottom: 12, color: '#a33' }}>
-          Error: {state.error}
-        </div>
-      )}
+      {/* Main Content */}
+      <main style={{ flexGrow: 1 }}>
+        {state.status === 'loading' && (
+          <div style={{ fontSize: 13, color: '#5f6368', textAlign: 'center', marginTop: 20 }}>Scanning...</div>
+        )}
 
-      {state.cookies.length > 0 ? (
-        <div style={{ display: 'grid', gap: 10 }}>
-          {state.cookies.map((cookie, index) => (
-            <div key={index} style={{ wordBreak: 'break-all', background: '#f4f4f6', padding: 12, borderRadius: 8, border: '1px solid #dcdfe3' }}>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Cookie name</div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 10 }}>{cookie.name}</div>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Domain</div>
-              <div style={{ fontSize: 12, marginBottom: 10 }}>{cookie.domain}</div>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Value</div>
-              <div style={{ fontSize: 11, fontFamily: 'monospace', marginBottom: 10, maxHeight: '100px', overflowY: 'auto' }}>{cookie.value}</div>
-              <button onClick={() => copyValue(cookie.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #1f6feb', background: '#1f6feb', color: '#fff', cursor: 'pointer', width: '100%' }}>
-                Copy
-              </button>
+        {state.status === 'empty' && (
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <div style={{ fontSize: 13, color: '#5f6368' }}>{state.message}</div>
+          </div>
+        )}
+
+        {state.status === 'success' && state.cookies.map((cookie, i) => (
+          <div key={i} style={{
+            border: `1px solid ${BORDER_COLOR}`,
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+            transition: 'box-shadow 0.2s',
+            ':hover': { boxShadow: '0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15)' }
+          } as any}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: GOOGLE_BLUE, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {cookie.isPartitioned ? 'Partitioned' : 'Standard'}
+              </span>
+              <span style={{ fontSize: 11, color: '#5f6368', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {cookie.domain}
+              </span>
             </div>
-          ))}
-          <button onClick={loadCookies} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #666', background: '#f2f2f5', color: '#111', cursor: 'pointer', width: '100%' }}>
-            Refresh
-          </button>
-        </div>
-      ) : (
-        <div style={{ marginTop: 12, padding: 12, background: '#f7f7fa', borderRadius: 8, border: '1px solid #e0e0e8', color: '#333' }}>
-          {state.status}
-        </div>
-      )}
+            
+            <div style={{ 
+              backgroundColor: '#f8f9fa', 
+              padding: '8px 10px', 
+              borderRadius: 4, 
+              fontSize: 12, 
+              fontFamily: 'monospace',
+              wordBreak: 'break-all',
+              maxHeight: 80,
+              overflowY: 'auto',
+              border: '1px solid #f1f3f4',
+              color: '#3c4043'
+            }}>
+              {cookie.value}
+            </div>
+
+            <button
+              onClick={() => copyToClipboard(cookie.value, i)}
+              style={{
+                marginTop: 10,
+                width: '100%',
+                padding: '8px',
+                borderRadius: 4,
+                border: `1px solid ${BORDER_COLOR}`,
+                backgroundColor: copiedId === i ? '#e6f4ea' : '#fff',
+                color: copiedId === i ? '#1e8e3e' : GOOGLE_BLUE,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {copiedId === i ? 'Copied' : 'Copy value'}
+            </button>
+          </div>
+        ))}
+      </main>
+
+      {/* Footer info */}
+      <footer style={{ marginTop: 'auto', paddingTop: 10, borderTop: `1px solid ${BORDER_COLOR}`, fontSize: 10, color: '#bdc1c6', textAlign: 'center' }}>
+        Cloudflare Clearance Filter • Chrome Extension
+      </footer>
     </div>
   )
 }
