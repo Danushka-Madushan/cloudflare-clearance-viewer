@@ -4,6 +4,7 @@ import pkg from './package.json'
 export default defineManifest({
   manifest_version: 3,
   name: "Cloudflare Clearance Viewer",
+  description: "Instantly view and copy cf_clearance cookies from any Cloudflare-protected site. One click. No DevTools needed.",
   version: pkg.version,
   icons: {
     16: 'public/logo-16.png',
