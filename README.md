@@ -8,8 +8,6 @@
   <img src="https://img.shields.io/badge/Bundler-Vite%20%2B%20CRXJS-646cff?style=flat-square&logo=vite&logoColor=white" />
 </div>
 
----
-
 ## What is `cf_clearance`?
 
 When Cloudflare's bot protection challenges a browser (e.g. via Turnstile or a JavaScript challenge), a `cf_clearance` cookie is issued upon successful verification. This cookie acts as a short-lived pass that proves the browser has already cleared the challenge.
@@ -111,8 +109,6 @@ cloudflare-clearance-viewer/
 | `cookies` | Read `cf_clearance` cookies for the active tab |
 | `activeTab` | Access the URL of the currently open tab |
 | `host_permissions: <all_urls>` | Query cookies across all domains |
-
----
 
 ## Privacy
 
