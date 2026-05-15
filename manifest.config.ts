@@ -3,14 +3,18 @@ import pkg from './package.json'
 
 export default defineManifest({
   manifest_version: 3,
-  name: pkg.name,
+  name: "Cloudflare Clearance Viewer",
   version: pkg.version,
   icons: {
-    48: 'public/logo.png',
+    16: 'public/logo-16.png',
+    32: 'public/logo-32.png',
+    34: 'public/logo-34.png',
+    48: 'public/logo-48.png',
+    128: 'public/logo-128.png',
   },
   action: {
     default_icon: {
-      48: 'public/logo.png',
+      48: 'public/logo-48.png',
     },
     default_popup: 'src/popup/index.html',
   },
