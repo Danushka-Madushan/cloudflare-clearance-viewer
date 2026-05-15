@@ -9,41 +9,45 @@ type Cookie = {
 
 type PageState = {
   cookies: Cookie[]
-  status: 'idle' | 'loading' | 'success' | 'error' | 'empty'
+  status: 'loading' | 'success' | 'error' | 'empty'
   message: string
-  url: string
 }
 
-const GOOGLE_BLUE = '#1a73e8'
-const BORDER_COLOR = '#dadce0'
+// Design Constants
+const COLORS = {
+  textPrimary: '#202124',
+  textSecondary: '#5f6368',
+  googleBlue: '#1a73e8',
+  googleGreen: '#1e8e3e',
+  border: '#dadce0',
+  surface: '#ffffff',
+  bg: '#f8f9fa',
+  badgeBg: '#e8f0fe',
+}
 
 const App = () => {
   const [state, setState] = useState<PageState>({
     cookies: [],
     status: 'loading',
-    message: 'Finding cf_clearance...',
-    url: '',
+    message: 'Initializing...',
   })
   const [copiedId, setCopiedId] = useState<number | null>(null)
 
   const loadCookies = useCallback(async () => {
     setState(prev => ({ ...prev, status: 'loading' }))
-
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.url) {
-        setState(prev => ({ ...prev, status: 'error', message: 'No active tab URL' }))
+        setState({ cookies: [], status: 'error', message: 'No active tab access' })
         return
       }
 
       const url = tab.url
       const filter = { name: 'cf_clearance' }
 
-      // Parallel fetch for unpartitioned and partitioned cookies
       const [unpartitioned, partitioned] = await Promise.all([
         chrome.cookies.getAll({ ...filter, url }),
-        chrome.cookies.getAll({ ...filter, partitionKey: { topLevelSite: url } })
-          .catch(() => []) // Graceful fail for older Chrome versions
+        chrome.cookies.getAll({ ...filter, partitionKey: { topLevelSite: url } }).catch(() => [])
       ])
 
       const combined = [...unpartitioned, ...partitioned].map(c => ({
@@ -54,130 +58,198 @@ const App = () => {
       }))
 
       setState({
-        url,
         cookies: combined,
         status: combined.length > 0 ? 'success' : 'empty',
-        message: combined.length > 0 ? '' : 'cf_clearance cookie not found on this page.',
+        message: combined.length > 0 ? '' : 'No clearance tokens found',
       })
     } catch (err) {
-      setState(prev => ({
-        ...prev,
-        status: 'error',
-        message: err instanceof Error ? err.message : 'Unknown error'
-      }))
+      setState({ cookies: [], status: 'error', message: 'Permission denied' })
     }
   }, [])
 
   const copyToClipboard = async (value: string, index: number) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopiedId(index)
-      setTimeout(() => setCopiedId(null), 2000)
-    } catch (e) {
-      console.error('Copy failed', e)
-    }
+    await navigator.clipboard.writeText(value)
+    setCopiedId(index)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
-  useEffect(() => {
-    loadCookies()
-  }, [loadCookies])
+  useEffect(() => { loadCookies() }, [loadCookies])
 
   return (
     <div style={{
-      width: 320,
-      backgroundColor: '#fff',
-      color: '#202124',
-      fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-      padding: '20px',
+      width: 340,
+      backgroundColor: COLORS.surface,
+      color: COLORS.textPrimary,
+      fontFamily: 'Segoe UI, Roboto, sans-serif',
       display: 'flex',
       flexDirection: 'column',
-      minHeight: '200px'
+      userSelect: 'none'
     }}>
-      {/* Header */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>Cloudflare Clearance</h1>
-        <button 
-          onClick={loadCookies}
-          title="Refresh"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#5f6368"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      {/* Google-style Header */}
+      <header style={{
+        padding: '16px 20px',
+        borderBottom: `1px solid ${COLORS.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS.googleBlue }} />
+          <h1 style={{ fontSize: 15, fontWeight: 500, margin: 0, letterSpacing: '0.2px' }}>Cloudflare Clearance</h1>
+        </div>
+        <button onClick={loadCookies} style={iconButtonStyle}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={COLORS.textSecondary}>
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
         </button>
       </header>
 
-      {/* Main Content */}
-      <main style={{ flexGrow: 1 }}>
-        {state.status === 'loading' && (
-          <div style={{ fontSize: 13, color: '#5f6368', textAlign: 'center', marginTop: 20 }}>Scanning...</div>
-        )}
-
-        {state.status === 'empty' && (
+      <main style={{ padding: '20px', minHeight: '180px' }}>
+        {state.status === 'loading' && <p style={messageStyle}>Scanning encrypted storage...</p>}
+        
+        {state.status === 'error' || state.status === 'empty' ? (
           <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <div style={{ fontSize: 13, color: '#5f6368' }}>{state.message}</div>
+            <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 12 }}>{state.message}</div>
+            <button onClick={loadCookies} style={secondaryButtonStyle}>Try again</button>
           </div>
-        )}
+        ) : null}
 
         {state.status === 'success' && state.cookies.map((cookie, i) => (
-          <div key={i} style={{
-            border: `1px solid ${BORDER_COLOR}`,
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 12,
-            transition: 'box-shadow 0.2s',
-            ':hover': { boxShadow: '0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15)' }
-          } as any}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: GOOGLE_BLUE, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div key={i} style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <div style={labelStyle}>DOMAIN</div>
+                <div style={domainStyle}>{cookie.domain}</div>
+              </div>
+              <span style={{
+                ...badgeStyle,
+                backgroundColor: cookie.isPartitioned ? COLORS.badgeBg : '#f1f3f4',
+                color: cookie.isPartitioned ? COLORS.googleBlue : COLORS.textSecondary
+              }}>
                 {cookie.isPartitioned ? 'Partitioned' : 'Standard'}
-              </span>
-              <span style={{ fontSize: 11, color: '#5f6368', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {cookie.domain}
               </span>
             </div>
             
-            <div style={{ 
-              backgroundColor: '#f8f9fa', 
-              padding: '8px 10px', 
-              borderRadius: 4, 
-              fontSize: 12, 
-              fontFamily: 'monospace',
-              wordBreak: 'break-all',
-              maxHeight: 80,
-              overflowY: 'auto',
-              border: '1px solid #f1f3f4',
-              color: '#3c4043'
-            }}>
+            <div style={valueBoxStyle}>
               {cookie.value}
             </div>
 
             <button
               onClick={() => copyToClipboard(cookie.value, i)}
               style={{
-                marginTop: 10,
-                width: '100%',
-                padding: '8px',
-                borderRadius: 4,
-                border: `1px solid ${BORDER_COLOR}`,
-                backgroundColor: copiedId === i ? '#e6f4ea' : '#fff',
-                color: copiedId === i ? '#1e8e3e' : GOOGLE_BLUE,
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                ...primaryButtonStyle,
+                backgroundColor: copiedId === i ? COLORS.googleGreen : COLORS.googleBlue,
               }}
             >
-              {copiedId === i ? 'Copied' : 'Copy value'}
+              {copiedId === i ? 'Copied!' : 'Copy Clearance Token'}
             </button>
           </div>
         ))}
       </main>
 
-      {/* Footer info */}
-      <footer style={{ marginTop: 'auto', paddingTop: 10, borderTop: `1px solid ${BORDER_COLOR}`, fontSize: 10, color: '#bdc1c6', textAlign: 'center' }}>
-        Cloudflare Clearance Filter • Chrome Extension
+      <footer style={{
+        padding: '12px 20px',
+        backgroundColor: COLORS.bg,
+        fontSize: 11,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        borderTop: `1px solid ${COLORS.border}`
+      }}>
+        Cloudflare Clearance Extractor | <a href="https://github.com/Danushka-Madushan" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.googleBlue, textDecoration: 'underline' }}>Github</a>
       </footer>
     </div>
   )
+}
+
+// Professional Styles
+const cardStyle = {
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: '12px',
+  padding: '16px',
+  backgroundColor: COLORS.surface,
+  boxShadow: '0 1px 2px rgba(60,64,67,0.1)'
+}
+
+const labelStyle = {
+  fontSize: '10px',
+  fontWeight: 700,
+  color: COLORS.textSecondary,
+  marginBottom: '4px',
+  letterSpacing: '0.5px'
+}
+
+const domainStyle = {
+  fontSize: '13px',
+  color: COLORS.textPrimary,
+  fontWeight: 500,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  maxWidth: '160px'
+}
+
+const badgeStyle = {
+  fontSize: '10px',
+  fontWeight: 600,
+  padding: '4px 10px',
+  borderRadius: '100px',
+  textTransform: 'uppercase' as const
+}
+
+const valueBoxStyle = {
+  backgroundColor: COLORS.bg,
+  padding: '12px',
+  borderRadius: '8px',
+  fontSize: '11px',
+  fontFamily: 'SFMono-Regular, Consolas, monospace',
+  wordBreak: 'break-all' as const,
+  maxHeight: '60px',
+  overflowY: 'auto' as const,
+  color: '#3c4043',
+  border: '1px inset rgba(0,0,0,0.02)',
+  marginBottom: '16px'
+}
+
+const primaryButtonStyle = {
+  width: '100%',
+  padding: '10px',
+  borderRadius: '8px',
+  border: 'none',
+  color: '#fff',
+  fontSize: '13px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background-color 0.2s ease',
+  outline: 'none'
+}
+
+const secondaryButtonStyle = {
+  padding: '8px 16px',
+  borderRadius: '20px',
+  border: `1px solid ${COLORS.border}`,
+  backgroundColor: '#fff',
+  fontSize: '13px',
+  color: COLORS.googleBlue,
+  cursor: 'pointer'
+}
+
+const iconButtonStyle = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '6px',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  transition: 'background 0.2s',
+  ':hover': { backgroundColor: '#f1f3f4' }
+} as any
+
+const messageStyle = {
+  fontSize: '13px',
+  color: COLORS.textSecondary,
+  textAlign: 'center' as const,
+  marginTop: 40
 }
 
 export default App
