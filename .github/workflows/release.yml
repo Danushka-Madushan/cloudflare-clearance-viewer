@@ -1,0 +1,52 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+  
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Get zip filename
+        id: zip
+        run: |
+          FILE=$(ls release/crx-*.zip | head -n 1)
+          echo "path=$FILE" >> $GITHUB_OUTPUT
+          echo "name=$(basename $FILE)" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ${{ steps.zip.outputs.path }}
+          body: |
+            ## Installation
+
+            1. Download `${{ steps.zip.outputs.name }}` below and extract it
+            2. Go to `chrome://extensions/` and enable **Developer mode**
+            3. Click **Load unpacked** and select the extracted folder
