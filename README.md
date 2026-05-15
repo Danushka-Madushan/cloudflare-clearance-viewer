@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/Danushka-Madushan/cloudflare-clearance-viewer/refs/heads/main/public/logo-128.png" alt="Cloudflare Clearance Viewer" width="96" />
   <h1>Cloudflare Clearance Viewer</h1>
-  <p>A minimal Chrome extension to inspect and copy <code>cf_clearance</code> cookies from any active tab instantly.</p>
+  <p>A minimal Chrome extension to inspect and copy <code>cf_clearance</code> cookies from any active tab - instantly.</p>
 
   <img src="https://img.shields.io/badge/Manifest-v3-blue?style=flat-square" alt="Manifest v3" />
   <img src="https://img.shields.io/badge/Built%20with-React%20%2B%20TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white" />
@@ -22,8 +22,6 @@ Developers often need this token to:
 
 **Cloudflare Clearance Viewer** makes retrieving this token effortless - no DevTools spelunking required.
 
----
-
 ## Features
 
 - 🔍 **Instant scanning** - reads `cf_clearance` cookies from the active tab on popup open
@@ -33,11 +31,13 @@ Developers often need this token to:
 - 🎨 **Clean UI** - minimal, Google-style design that stays out of your way
 - ⚡ **Zero runtime dependencies** - no background service worker, no data collection
 
----
+## Preview
 
-## Installation
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Danushka-Madushan/cloudflare-clearance-viewer/refs/heads/main/screens/snapshot.png" alt="Cloudflare Clearance Viewer screenshot" width="360" />
+</div>
 
-### From Source (Developer Mode)
+### Install From Source (Developer Mode)
 
 1. **Clone the repository**
    ```bash
@@ -62,8 +62,6 @@ Developers often need this token to:
 
 5. **Pin the extension** to your toolbar for quick access
 
----
-
 ## Usage
 
 1. Navigate to any Cloudflare-protected website and complete the challenge if prompted
@@ -75,8 +73,6 @@ Each cookie card displays:
 - The **domain** it belongs to
 - Whether it is **Standard** or **Partitioned**
 - A scrollable preview of the **raw token value**
-
----
 
 ## Development
 
@@ -121,8 +117,6 @@ cloudflare-clearance-viewer/
 ## Privacy
 
 This extension operates **entirely locally**. It does not transmit any data to external servers, does not use analytics, and has no background service worker. Cookie values never leave your browser.
-
----
 
 ## Contributing
 
